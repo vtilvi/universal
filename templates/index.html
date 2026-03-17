@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>Indian Calendar Explorer</title>
+
+<style>
+body{
+font-family:Segoe UI,Arial;
+background: radial-gradient(circle at top,#0f2027,#203a43,#000000);
+color:white;
+margin:0;
+}
+
+.container{
+width:900px;
+margin:40px auto;
+padding:25px;
+border-radius:16px;
+background:rgba(255,255,255,0.06);
+backdrop-filter: blur(12px);
+box-shadow:0 20px 60px rgba(0,0,0,0.7);
+}
+
+h1{text-align:center;margin-bottom:20px;}
+
+.form-row{display:flex;gap:10px;margin-bottom:15px;}
+
+input{
+flex:1;
+padding:10px;
+border-radius:6px;
+border:none;
+}
+
+button{
+padding:10px;
+background:#ffcc00;
+border:none;
+border-radius:8px;
+font-weight:bold;
+cursor:pointer;
+}
+
+.dashboard{
+display:flex;
+gap:20px;
+margin-top:15px;
+}
+
+.main-panel,.side-panel{
+padding:15px;
+border-radius:12px;
+background:rgba(255,255,255,0.05);
+}
+
+.main-panel{flex:2;}
+.side-panel{flex:1;}
+
+.card{
+margin-bottom:10px;
+padding:10px;
+border-radius:8px;
+background:rgba(0,0,0,0.4);
+}
+
+canvas{
+background:black;
+border-radius:12px;
+display:block;
+margin:20px auto;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🌌 Indian Calendar Explorer</h1>
+
+<form onsubmit="event.preventDefault(); manualCalculate();">
+<div class="form-row">
+<input type="date" name="date" value="{{date}}" required>
+<input type="time" name="time" value="{{time}}" required>
+<button type="submit">Calculate</button>
+</div>
+</form>
+
+{% if result %}
+
+<h3 id="titleText" style="text-align:center;">
+Indian Calendar for {{date}} {{time}} IST
+</h3>
+
+<div class="dashboard">
+
+<div class="main-panel" id="mainPanel">
+<div class="card">🌙 Lunar Month : {{result.Lunar_month}}</div>
+<div class="card">🌓 Paksha : {{result.Paksha}}</div>
+<div class="card">📅 Tithi : {{result.Tithi}}</div>
+</div>
+
+<div class="side-panel" id="sidePanel">
+<div class="card">⭐ Nakshatra : {{result.Nakshatra}}</div>
+<div class="card">☀️ Sun Rashi : {{result.Sun_Rashi}}</div>
+<div class="card">🌙 Moon Rashi : {{result.Moon_Rashi}}</div>
+</div>
+
+</div>
+
+<div style="text-align:center; margin-top:15px;">
+<button onclick="prevDay()">⏮ Prev</button>
+<button onclick="togglePlay()" id="playBtn">▶ Play</button>
+<button onclick="nextDay()">⏭ Next</button>
+</div>
+
+<canvas id="zodiacCanvas" width="520" height="520"></canvas>
+
+{% endif %}
+
+</div>
+
+{% if result %}
+
+<script>
+
+let planets = {{ result.planet_longitudes | tojson }};
+let isPlaying = false;
+
+const planetColors = {
+    "Sun": "yellow",
+    "Moon": "white",
+    "Mercury": "lightgray",
+    "Venus": "lightgreen",
+    "Mars": "#ff6666",
+    "Jupiter": "#ff6666",
+    "Saturn": "#ffb6c1",
+    "Uranus": "#87cefa",
+    "Neptune": "lightgreen"
+};
+
+const rashiNames = [
+"Mesha","Vrishabha","Mithuna","Karka","Simha","Kanya",
+"Tula","Vrischika","Dhanu","Makara","Kumbha","Meena"
+];
+
+async function loadDate(dateStr, timeStr){
+    const res = await fetch(`/calculate_json?date=${dateStr}&time=${timeStr}`);
+    const data = await res.json();
+
+    document.getElementById("titleText").innerText =
+        `Indian Calendar for ${dateStr} ${timeStr} IST`;
+
+    document.getElementById("mainPanel").innerHTML = `
+        <div class="card">🌙 Lunar Month : ${data.Lunar_month}</div>
+        <div class="card">🌓 Paksha : ${data.Paksha}</div>
+        <div class="card">📅 Tithi : ${data.Tithi}</div>
+    `;
+
+    document.getElementById("sidePanel").innerHTML = `
+        <div class="card">⭐ Nakshatra : ${data.Nakshatra}</div>
+        <div class="card">☀️ Sun Rashi : ${data.Sun_Rashi}</div>
+        <div class="card">🌙 Moon Rashi : ${data.Moon_Rashi}</div>
+    `;
+
+    planets = data.planet_longitudes;
+    draw();
+}
+
+async function nextDay(){
+    let d = document.querySelector('[name="date"]');
+    let t = document.querySelector('[name="time"]');
+
+    let date = new Date(d.value + "T" + t.value);
+    date.setDate(date.getDate() + 1);
+
+    d.value = date.toISOString().split('T')[0];
+    await loadDate(d.value, t.value);
+}
+
+async function prevDay(){
+    let d = document.querySelector('[name="date"]');
+    let t = document.querySelector('[name="time"]');
+
+    let date = new Date(d.value + "T" + t.value);
+    date.setDate(date.getDate() - 1);
+
+    d.value = date.toISOString().split('T')[0];
+    await loadDate(d.value, t.value);
+}
+
+async function playLoop(){
+    while(isPlaying){
+        await nextDay();
+        await new Promise(r => setTimeout(r, 500));
+    }
+}
+
+function togglePlay(){
+    const btn = document.getElementById("playBtn");
+
+    if(!isPlaying){
+        isPlaying = true;
+        btn.innerText = "⏸ Pause";
+        playLoop();
+    } else {
+        isPlaying = false;
+        btn.innerText = "▶ Play";
+    }
+}
+
+function manualCalculate(){
+    let d = document.querySelector('[name="date"]').value;
+    let t = document.querySelector('[name="time"]').value;
+    loadDate(d,t);
+}
+
+const canvas = document.getElementById("zodiacCanvas");
+const ctx = canvas.getContext("2d");
+
+const cx = 260;
+const cy = 260;
+const rashiRadius = 180;
+const nakRadius = 220;
+const nakSize = 360/27;
+
+function draw(){
+
+ctx.clearRect(0,0,520,520);
+
+// circles
+ctx.strokeStyle="lime";
+ctx.beginPath();
+ctx.arc(cx,cy,rashiRadius,0,2*Math.PI);
+ctx.stroke();
+
+ctx.strokeStyle="red";
+ctx.beginPath();
+ctx.arc(cx,cy,nakRadius,0,2*Math.PI);
+ctx.stroke();
+
+// rashi lines
+for(let i=0;i<12;i++){
+    let a=(i*30-90)*Math.PI/180;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.lineTo(cx+rashiRadius*Math.cos(a),
+               cy+rashiRadius*Math.sin(a));
+    ctx.stroke();
+}
+
+// rashi labels (inward)
+for(let i=0;i<12;i++){
+    let midAngle = ((i*30 + 15) - 90) * Math.PI/180;
+
+    let tx = cx + (rashiRadius - 95) * Math.cos(midAngle);
+    let ty = cy + (rashiRadius - 95) * Math.sin(midAngle);
+
+    ctx.save();
+    ctx.translate(tx, ty);
+    ctx.rotate(midAngle);
+
+    if (midAngle > Math.PI/2 && midAngle < 3*Math.PI/2) {
+        ctx.rotate(Math.PI);
+        ctx.textAlign = "right";
+    } else {
+        ctx.textAlign = "left";
+    }
+
+    ctx.fillStyle = "#00ffcc";
+    ctx.font = "10px Arial";
+    ctx.textBaseline = "middle";
+    ctx.fillText(rashiNames[i], 0, 0);
+
+    ctx.restore();
+}
+
+// nakshatra lines
+ctx.setLineDash([3,5]);
+for(let i=0;i<27;i++){
+    let a=(i*nakSize-90)*Math.PI/180;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.lineTo(cx+nakRadius*Math.cos(a),
+               cy+nakRadius*Math.sin(a));
+    ctx.stroke();
+}
+ctx.setLineDash([]);
+
+// planets
+for(let p in planets){
+
+    let a=(planets[p]-90)*Math.PI/180;
+
+    let x=cx+(rashiRadius-20)*Math.cos(a);
+    let y=cy+(rashiRadius-20)*Math.sin(a);
+
+    ctx.fillStyle = planetColors[p] || "yellow";
+
+    let size = 4;
+    if (p === "Sun" || p === "Moon") {
+        size = 4 * 1.3;
+    }
+
+    ctx.beginPath();
+    ctx.arc(x,y,size,0,2*Math.PI);
+    ctx.fill();
+
+    let offset = 14;
+    let lx = x + Math.cos(a) * offset;
+    let ly = y + Math.sin(a) * offset;
+
+    ctx.save();
+    ctx.translate(lx, ly);
+    ctx.rotate(a);
+
+    if (a > Math.PI/2 && a < 3*Math.PI/2) {
+        ctx.rotate(Math.PI);
+        ctx.textAlign = "right";
+    } else {
+        ctx.textAlign = "left";
+    }
+
+    ctx.fillStyle = planetColors[p];
+    ctx.font="10px Arial";
+    ctx.textBaseline="middle";
+    ctx.fillText(p, 0, 0);
+
+    ctx.restore();
+}
+
+}
+
+draw();
+
+</script>
+
+{% endif %}
+
+</body>
+</html>
