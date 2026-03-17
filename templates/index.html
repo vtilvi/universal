@@ -70,6 +70,14 @@ border-radius:12px;
 display:block;
 margin:20px auto;
 }
+
+/* Footer */
+.footer{
+text-align:center;
+margin-top:20px;
+font-size:12px;
+opacity:0.7;
+}
 </style>
 </head>
 
@@ -118,6 +126,11 @@ Indian Calendar for {{date}} {{time}} IST
 <canvas id="zodiacCanvas" width="520" height="520"></canvas>
 
 {% endif %}
+
+<!-- ✅ Footer added safely -->
+<div class="footer">
+Developed by V. Tilvi
+</div>
 
 </div>
 
@@ -250,7 +263,7 @@ for(let i=0;i<12;i++){
     ctx.stroke();
 }
 
-// rashi labels (inward)
+// rashi labels
 for(let i=0;i<12;i++){
     let midAngle = ((i*30 + 15) - 90) * Math.PI/180;
 
@@ -270,7 +283,6 @@ for(let i=0;i<12;i++){
 
     ctx.fillStyle = "#00ffcc";
     ctx.font = "10px Arial";
-    ctx.textBaseline = "middle";
     ctx.fillText(rashiNames[i], 0, 0);
 
     ctx.restore();
@@ -299,35 +311,18 @@ for(let p in planets){
     ctx.fillStyle = planetColors[p] || "yellow";
 
     let size = 4;
-    if (p === "Sun" || p === "Moon") {
-        size = 4 * 1.3;
-    }
+    if (p === "Sun" || p === "Moon") size *= 1.3;
 
     ctx.beginPath();
     ctx.arc(x,y,size,0,2*Math.PI);
     ctx.fill();
 
-    let offset = 14;
-    let lx = x + Math.cos(a) * offset;
-    let ly = y + Math.sin(a) * offset;
-
-    ctx.save();
-    ctx.translate(lx, ly);
-    ctx.rotate(a);
-
-    if (a > Math.PI/2 && a < 3*Math.PI/2) {
-        ctx.rotate(Math.PI);
-        ctx.textAlign = "right";
-    } else {
-        ctx.textAlign = "left";
-    }
+    let lx = x + Math.cos(a)*14;
+    let ly = y + Math.sin(a)*14;
 
     ctx.fillStyle = planetColors[p];
     ctx.font="10px Arial";
-    ctx.textBaseline="middle";
-    ctx.fillText(p, 0, 0);
-
-    ctx.restore();
+    ctx.fillText(p,lx,ly);
 }
 
 }
