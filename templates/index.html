@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Vedic Orbit Explorer</title>
+    <title>Vedic Mandal Calendar</title>
     <style>
         :root {
             --gold: #ffcc00;
@@ -192,7 +192,7 @@
 
 <body>
     <div class="container">
-        <h1>✨ Vedic Orbit Explorer</h1>
+        <h1>✨ Vedic Mandal Calendar</h1>
         <form onsubmit="event.preventDefault(); manualCalculate();">
             <div class="form-row">
                 <button type="button" class="secondary" onclick="setCurrentTime()">Now</button>
@@ -258,9 +258,10 @@
         const nakshatraNames = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"];
         
         const rashiColors = [
-            "rgba(255, 99, 71, 0.12)", "rgba(255, 215, 0, 0.12)", "rgba(50, 205, 50, 0.12)", "rgba(135, 206, 235, 0.12)",
-            "rgba(255, 165, 0, 0.12)", "rgba(144, 238, 144, 0.12)", "rgba(238, 130, 238, 0.12)", "rgba(178, 34, 34, 0.12)",
-            "rgba(218, 165, 32, 0.12)", "rgba(112, 128, 144, 0.12)", "rgba(0, 191, 255, 0.12)", "rgba(152, 251, 152, 0.12)"
+            "rgba(255, 99, 71, 0.25)", "rgba(255, 215, 0, 0.25)", "rgba(50, 205, 50, 0.25)", "rgba(135, 206, 235, 0.25)",
+            "rgba(255, 165, 0, 0.25)", "rgba(144, 238, 144, 0.25)", "rgba(238, 130, 238, 0.25)", 
+            "rgba(255, 60, 60, 0.35)", // Brighter Vrischika (index 7)
+            "rgba(218, 165, 32, 0.25)", "rgba(112, 128, 144, 0.25)", "rgba(0, 191, 255, 0.25)", "rgba(152, 251, 152, 0.25)"
         ];
 
         function setCurrentTime() {
@@ -315,12 +316,14 @@
             let moonLong = planets["Moon"] || 0;
             let currentNakIdx = Math.floor(moonLong / nakSize);
 
+            // Draw Rashi Segments
             for (let i = 0; i < 12; i++) {
                 let sA = (i * 30 - 90) * Math.PI / 180, eA = ((i + 1) * 30 - 90) * Math.PI / 180;
                 ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, rashiRadius, sA, eA);
                 ctx.fillStyle = rashiColors[i]; ctx.fill();
             }
 
+            // Current Nakshatra Glow Highlight
             let nStartA = (currentNakIdx * nakSize - 90) * Math.PI / 180, nEndA = ((currentNakIdx + 1) * nakSize - 90) * Math.PI / 180;
             ctx.save();
             ctx.beginPath(); ctx.arc(cx, cy, nakRadius, nStartA, nEndA);
@@ -328,6 +331,7 @@
             ctx.fillStyle = "rgba(255, 204, 0, 0.35)"; ctx.fill();
             ctx.restore();
 
+            // Rashi Radial Lines & Dynamic Labels
             ctx.setLineDash([]);
             ctx.strokeStyle = "rgba(0, 255, 204, 0.3)"; ctx.lineWidth = 1;
             for (let i = 0; i < 12; i++) {
@@ -335,17 +339,27 @@
                 ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + rashiRadius * Math.cos(a), cy + rashiRadius * Math.sin(a)); ctx.stroke();
                 
                 let mid = (i * 30 + 15 - 90) * Math.PI / 180;
-                ctx.save(); ctx.translate(cx + (rashiRadius - 100) * Math.cos(mid), cy + (rashiRadius - 100) * Math.sin(mid));
+                ctx.save(); ctx.translate(cx + (rashiRadius - 130) * Math.cos(mid), cy + (rashiRadius - 130) * Math.sin(mid));
                 ctx.rotate(mid + (mid > Math.PI/2 && mid < 3*Math.PI/2 ? Math.PI : 0));
-                ctx.fillStyle = "rgba(255, 255, 255, 0.85)"; ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
+                
+                // Set color for text based on segment background
+                ctx.fillStyle = rashiColors[i].replace(/0\.\d+\)/, "1.0)"); 
+                ctx.font = "bold 13px Arial"; 
+                ctx.textAlign = "center";
+                ctx.shadowColor = "rgba(0,0,0,0.6)";
+                ctx.shadowBlur = 3;
+                
                 ctx.fillText(rashiNames[i].toUpperCase(), 0, 0); ctx.restore();
             }
 
+            // Boundary Rings
+            ctx.shadowBlur = 0;
             ctx.strokeStyle = "#00ffcc"; ctx.lineWidth = 2.5;
             ctx.beginPath(); ctx.arc(cx, cy, rashiRadius, 0, 2 * Math.PI); ctx.stroke();
             ctx.strokeStyle = "#ff4444";
             ctx.beginPath(); ctx.arc(cx, cy, nakRadius, 0, 2 * Math.PI); ctx.stroke();
 
+            // Nakshatra Markings
             for (let i = 0; i < 27; i++) {
                 let a = (i * nakSize - 90) * Math.PI / 180;
                 ctx.setLineDash([5, 5]); ctx.strokeStyle = "rgba(255, 102, 102, 0.6)";
@@ -362,16 +376,30 @@
                 ctx.fillText(nakshatraNames[i], 0, 0); ctx.restore();
             }
 
+            // Planets & Brighter White Labels
             ctx.setLineDash([]);
             for (let p in planets) {
                 let a = (planets[p] - 90) * Math.PI / 180;
-                let px = cx + (rashiRadius - 20) * Math.cos(a), py = cy + (rashiRadius - 20) * Math.sin(a);
+                
+                let px = cx + (rashiRadius - 75) * Math.cos(a);
+                let py = cy + (rashiRadius - 75) * Math.sin(a);
+                
                 ctx.fillStyle = planetColors[p] || "white";
-                ctx.beginPath(); ctx.arc(px, py, (p === "Sun" || p === "Moon" ? 8 : 6), 0, 2 * Math.PI); ctx.fill();
-                ctx.save(); ctx.translate(cx + (rashiRadius + 15) * Math.cos(a), cy + (rashiRadius + 15) * Math.sin(a));
+                ctx.beginPath(); 
+                ctx.arc(px, py, (p === "Sun" || p === "Moon" ? 8 : 6), 0, 2 * Math.PI); 
+                ctx.fill();
+                
+                ctx.save(); 
+                ctx.translate(cx + (rashiRadius - 40) * Math.cos(a), cy + (rashiRadius - 40) * Math.sin(a));
                 ctx.rotate(a + (a > Math.PI/2 && a < 3*Math.PI/2 ? Math.PI : 0));
-                ctx.font = "bold 14px Arial"; ctx.textAlign = "center"; ctx.fillStyle = planetColors[p];
-                ctx.fillText(p, 0, 4); ctx.restore();
+                
+                ctx.font = "14px Arial"; 
+                ctx.textAlign = "center"; 
+                ctx.fillStyle = "#ffffff"; 
+                ctx.shadowColor = "black";
+                ctx.shadowBlur = 6; 
+                ctx.fillText(p, 0, 4); 
+                ctx.restore();
             }
         }
         
