@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Global Monitor | Sun, Moon & Solar Activity</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #020617;
+            --panel: rgba(15, 23, 42, 0.9);
+            --accent: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.4);
+            --border: rgba(255, 255, 255, 0.1);
+            --btn-bg: rgba(30, 41, 59, 0.7);
+            --moon-light: #f8fafc;
+            --moon-dark: #0f172a;
+            --sun-gold: #fbbf24;
+        }
+
+        html, body {
+            height: 100%; margin: 0; padding: 0;
+            background: var(--bg);
+            display: flex; flex-direction: column; align-items: center;
+            font-family: 'Inter', sans-serif;
+            overflow-y: auto; color: #fff;
+        }
+
+        .hud {
+            position: sticky; top: 20px; z-index: 2000;
+            background: var(--panel); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border); border-radius: 20px; 
+            padding: 12px 32px; display: flex; align-items: center; gap: 25px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            margin-top: 20px; margin-bottom: 20px;
+        }
+
+        #scaler { transform-origin: center; display: flex; align-items: center; justify-content: center; width: 100%; transition: transform 0.1s ease-out; }
+        .container { position: relative; width: 92vw; aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 30px; flex-shrink: 0; }
+        #map { width: 100%; height: 100%; background: #000; }
+
+        /* Style for the Internal Map Control */
+        .map-date-label {
+            background: rgba(15, 23, 42, 0.7) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 6px !important;
+            padding: 8px 15px !important;
+            margin: 15px !important;
+            backdrop-filter: blur(10px);
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        #bigDate {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 20px;
+            font-weight: 700;
+            color: #ffffff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+
+        .solar-monitor {
+            width: 92vw; background: var(--panel); border: 1px solid var(--border);
+            border-radius: 20px; padding: 30px; display: flex; gap: 40px;
+            align-items: center; margin-bottom: 50px; backdrop-filter: blur(20px);
+            box-sizing: border-box;
+        }
+
+        .sun-image-container {
+            width: 300px; height: 300px; background: #111; border-radius: 15px;
+            border: 2px solid var(--sun-gold); overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .sun-image-container img { width: 100%; height: 100%; object-fit: contain; background: #000; }
+
+        .time-block { display: flex; flex-direction: column; min-width: 150px; }
+        .label { font-size: 9px; color: #e2e8f0; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; margin-bottom: 4px; }
+        .value { font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: var(--accent); font-weight: 600; }
+        .ctrl-group { display: flex; gap: 10px; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 15px; align-items: center; }
+        
+        button { background: var(--btn-bg); border: 1px solid var(--border); color: #cbd5e1; padding: 8px 16px; cursor: pointer; border-radius: 8px; font-weight: 600; transition: 0.3s; font-size: 12px; }
+        button:hover { border-color: var(--accent); color: var(--accent); }
+        
+        select { background: var(--btn-bg); color: var(--accent); border: 1px solid var(--border); padding: 5px; border-radius: 6px; font-size: 11px; outline: none; }
+        input[type=range] { accent-color: var(--accent); width: 80px; cursor: pointer; }
+
+        .sun-marker { font-size: 24px; text-shadow: 0 0 20px orange; }
+        .moon-sphere { width: 18px; height: 18px; background: var(--moon-dark); border-radius: 50%; position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.3); }
+        .moon-half { position: absolute; top: 0; width: 50%; height: 100%; background: var(--moon-light); }
+        .moon-curve { position: absolute; top: 0; left: 25%; width: 50%; height: 100%; border-radius: 50%; }
+        .leaflet-terminator-path { filter: blur(4px); stroke: rgba(56, 189, 248, 0.4); stroke-width: 1px; }
+
+        .coord-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10px;
+            color: #fbbf24;
+            text-transform: uppercase;
+            white-space: nowrap;
+            text-shadow: 0 0 5px rgba(0,0,0,0.8);
+        }
+    </style>
+</head>
+<body>
+
+<div class="hud">
+    <div class="time-block">
+        <span class="label">Location</span>
+        <select id="countrySel" onchange="update()">
+            <option value="5.5" selected>India (IST)</option>
+            <option value="0">UK (GMT)</option>
+            <option value="9">Japan (JST)</option>
+            <option value="-5">USA (EST)</option>
+        </select>
+        <span id="timeVal" class="value">--:--:--</span>
+    </div>
+
+    <div class="time-block" style="min-width: 120px;">
+        <span class="label">Moon Phase</span>
+        <span id="phaseLabel" class="value" style="font-size: 12px;">--</span>
+    </div>
+
+    <div class="ctrl-group">
+        <span class="label">Scale</span>
+        <input type="range" id="scaleSlider" min="0.5" max="1.5" step="0.01" value="1.0">
+    </div>
+
+    <div class="ctrl-group">
+        <div style="display:flex; flex-direction:column; margin-right:5px;">
+            <span class="label">Interval</span>
+            <select id="speedSel" onchange="resetAnimation()">
+                <option value="60000">1 Minute</option>
+                <option value="3600000" selected>1 Hour</option>
+                <option value="86400000">1 Day</option>
+                <option value="604800000">1 Week</option>
+                <option value="2592000000">1 Month</option>
+            </select>
+        </div>
+        <button onclick="setNow()" style="color:var(--accent)">NOW</button>
+        <button onclick="step(-1)">◀</button>
+        <button id="pBtn" onclick="toggle()" style="min-width: 80px;">▶ PLAY</button>
+        <button onclick="step(1)">▶</button>
+    </div>
+</div>
+
+<div id="scaler">
+    <div class="container">
+        <div id="map"></div>
+    </div>
+</div>
+
+<div class="solar-monitor">
+    <div class="sun-image-container">
+        <img id="sunPic" src="" alt="Connecting to Satellite...">
+    </div>
+    <div class="solar-info">
+        <h2 style="color:var(--sun-gold); margin-top:0;">Live Solar Activity</h2>
+        <p style="color:#94a3b8; font-size: 14px; line-height: 1.6;">Currently displaying the <strong>HMI Intensitygram</strong>. This reveals sunspots as dark regions where intense magnetic fields inhibit convection.</p>
+        <div style="display:flex; gap:10px;">
+            <button onclick="refreshSunImages()" style="font-size:10px; padding:5px 10px;">RELOAD SATELLITE FEED</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/@joergdietrich/leaflet.terminator"></script>
+
+<script>
+    var worldBounds = [[-90, -180], [90, 180]];
+    var map = L.map('map', { crs: L.CRS.Simple, center: [0, 0], zoom: 1, zoomControl: false, attributionControl: false });
+    L.imageOverlay('https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Equirectangular_projection_SW.jpg/1280px-Equirectangular_projection_SW.jpg', worldBounds).addTo(map);
+
+    map.options.crs = L.extend({}, L.CRS.Simple, {
+        projection: L.Projection.LonLat, transformation: new L.Transformation(1, 0, -1, 0),
+        scale: function (zoom) { return Math.pow(2, zoom); }
+    });
+
+    // Native Leaflet Control for the Date - Pinned inside the map viewport
+    var DateOverlay = L.Control.extend({
+        options: { position: 'topleft' },
+        onAdd: function (map) {
+            var div = L.DomUtil.create('div', 'map-date-label');
+            div.innerHTML = '<div id="bigDate">-- --- ----</div>';
+            return div;
+        }
+    });
+    map.addControl(new DateOverlay());
+
+    var tropicStyle = { color: "#fbbf24", weight: 1, dashArray: "5, 5", fill: false, interactive: false, opacity: 0.6 };
+    L.polyline([[23.436, -180], [23.436, 180]], tropicStyle).addTo(map); 
+    L.polyline([[0, -180], [0, 180]], tropicStyle).addTo(map);           
+    L.polyline([[-23.436, -180], [-23.436, 180]], tropicStyle).addTo(map); 
+
+    function addRightLabel(lat, text) {
+        L.marker([lat, 178], {
+            icon: L.divIcon({
+                className: 'coord-label',
+                html: text,
+                iconAnchor: [text.length * 6, 5] 
+            }),
+            interactive: false
+        }).addTo(map);
+    }
+
+    addRightLabel(23.436, "Tropic of Cancer");
+    addRightLabel(0, "Equator");
+    addRightLabel(-23.436, "Tropic of Capricorn");
+
+    var night = L.terminator({ fillColor: '#000', fillOpacity: 0.55, weight: 0, className: 'leaflet-terminator-path' }).addTo(map);
+    
+    function refreshSunImages() {
+        const timestampedUrl = "https://services.swpc.noaa.gov/images/animations/sdo-hmi-ic/latest.jpg?t=" + new Date().getTime();
+        document.getElementById('sunPic').src = timestampedUrl;
+    }
+
+    var sun = L.marker([0,0], { icon: L.divIcon({ html:'☀️', className:'sun-marker', iconAnchor: [12, 12] }) }).addTo(map);
+    var moon = L.marker([0,0], { icon: L.divIcon({ html:'<div class="moon-sphere" id="mSphere"></div>', className:'moon-marker', iconAnchor: [9, 9] }) }).addTo(map);
+
+    var simTime = new Date();
+    var timer = null;
+
+    function applyScale(val) {
+        document.getElementById('scaler').style.transform = `scale(${val})`;
+        setTimeout(() => map.invalidateSize(), 50);
+    }
+    document.getElementById('scaleSlider').addEventListener('input', (e) => applyScale(e.target.value));
+
+    function getCelestial(date) {
+        const rad = Math.PI / 180, d = (date.getTime() / 86400000) - 10957.5;
+        let gS = (357.529 + 0.98560028 * d) % 360, qS = (280.459 + 0.98564736 * d) % 360;
+        let Lsun = (qS + 1.915 * Math.sin(gS * rad)) % 360, e = 23.439 * rad;
+        let gmst = (280.16 + 360.9856235 * d) % 360;
+        let sunRA = Math.atan2(Math.cos(e) * Math.sin(Lsun * rad), Math.cos(Lsun * rad)) / rad;
+        let sunDec = Math.asin(Math.sin(e) * Math.sin(Lsun * rad)) / rad;
+        let Lm = (218.316 + 13.176396 * d) % 360, Mm = (134.963 + 13.064993 * d) % 360;
+        let Lmoon = (Lm + 6.289 * Math.sin(Mm * rad)) % 360;
+        let moonRA = Math.atan2(Math.cos(e) * Math.sin(Lmoon * rad), Math.cos(Lmoon * rad)) / rad;
+        let moonDec = Math.asin(Math.sin(e) * Math.sin(Lmoon * rad)) / rad;
+        const toLon = (ra) => { let lon = (ra - gmst) % 360; return lon < -180 ? lon + 360 : (lon > 180 ? lon - 360 : lon); };
+        return { sun: [sunDec, toLon(sunRA)], moon: [moonDec, toLon(moonRA)], age: (Lmoon - Lsun + 360) % 360 };
+    }
+
+    function drawMoonPhase(age) {
+        const sphere = document.getElementById('mSphere'), label = document.getElementById('phaseLabel');
+        const cosA = Math.cos(age * (Math.PI / 180));
+        let html = '';
+        if (age < 180) { 
+            html += `<div class="moon-half" style="right:0;"></div><div class="moon-curve" style="background:${age < 90 ? 'var(--moon-dark)' : 'var(--moon-light)'}; transform: scaleX(${Math.abs(cosA) * 2});"></div>`;
+        } else { 
+            html += `<div class="moon-half" style="left:0;"></div><div class="moon-curve" style="background:${age < 270 ? 'var(--moon-light)' : 'var(--moon-dark)'}; transform: scaleX(${Math.abs(cosA) * 2});"></div>`;
+        }
+        sphere.innerHTML = html;
+        const phases = ["New Moon", "Waxing Crescent", "First Quarter", "Waxing Gibbous", "Full Moon", "Waning Gibbous", "Last Quarter", "Waning Crescent"];
+        label.innerText = phases[Math.floor(((age + 22.5) % 360) / 45)];
+    }
+
+    function update() {
+        const data = getCelestial(simTime);
+        night.setTime(simTime); sun.setLatLng(data.sun); moon.setLatLng(data.moon);
+        drawMoonPhase(data.age);
+        const offset = parseFloat(document.getElementById('countrySel').value);
+        const localTime = new Date(simTime.getTime() + (offset * 3600000));
+        const f = (n) => n.toString().padStart(2, '0');
+        
+        document.getElementById('timeVal').innerText = `${localTime.getUTCFullYear()}/${f(localTime.getUTCMonth()+1)}/${f(localTime.getUTCDate())} ${f(localTime.getUTCHours())}:${f(localTime.getUTCMinutes())}:${f(localTime.getUTCSeconds())}`;
+        
+        const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+        const bigDateEl = document.getElementById('bigDate');
+        if (bigDateEl) bigDateEl.innerText = `${localTime.getUTCDate()} ${months[localTime.getUTCMonth()]} ${localTime.getUTCFullYear()}`;
+    }
+
+    function setNow() { simTime = new Date(); update(); }
+    function step(dir) { simTime = new Date(simTime.getTime() + (parseInt(document.getElementById('speedSel').value) * dir)); update(); }
+    
+    function toggle() { 
+        const btn = document.getElementById('pBtn');
+        const speed = document.getElementById('speedSel').value;
+        let frameRate = (speed === "60000") ? 100 : 1000;
+        if (timer) { clearInterval(timer); timer = null; btn.innerText = "▶ PLAY"; }
+        else { btn.innerText = "⏸ STOP"; timer = setInterval(() => step(1), frameRate); }
+    }
+
+    function resetAnimation() { if (timer) { toggle(); toggle(); } }
+
+    refreshSunImages();
+    setInterval(refreshSunImages, 900000); 
+    map.fitBounds(worldBounds);
+    update();
+</script>
+</body>
+</html>

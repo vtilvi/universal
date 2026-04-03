@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Majestic Solar System</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* Essential layout overrides to ensure UI stays fixed */
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', sans-serif; color: white; }
+        
+        #ui {
+            position: absolute; 
+            top: 20px; 
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85); 
+            padding: 20px; 
+            border-radius: 12px;
+            border: 1px solid #333; 
+            width: 250px; 
+            z-index: 100; 
+            backdrop-filter: blur(5px);
+        }
+
+        h2 { margin: 0 0 15px 0; font-size: 16px; color: #00d4ff; text-transform: uppercase; letter-spacing: 1px; }
+        .control-group { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 6px; font-size: 11px; color: #888; text-transform: uppercase; }
+        
+        button {
+            background: #222; 
+            color: white; 
+            border: 1px solid #444; 
+            padding: 8px 12px;
+            border-radius: 6px; 
+            cursor: pointer; 
+            margin-right: 5px; 
+            font-size: 13px; 
+            transition: 0.2s;
+        }
+
+        button:hover { background: #333; border-color: #00d4ff; }
+        select { width: 100%; background: #111; color: white; border: 1px solid #444; padding: 8px; border-radius: 6px; cursor: pointer; }
+        #timeValue { font-family: monospace; font-size: 22px; color: #00ff88; display: block; margin-top: 10px; }
+        .toggle-item { margin-top: 10px; display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: pointer; }
+        
+        /* Home Button Style */
+        .home-btn {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: #00d4ff;
+            color: #00d4ff;
+            width: 100%;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h2>Orrery Engine</h2>
+        
+        <div class="control-group">
+            <label>Simulation Speed (per sec)</label>
+            <select id="speedMenu">
+                <option value="1" selected>1 Day</option>
+                <option value="7">1 Week</option>
+                <option value="30">1 Month</option>
+                <option value="365">1 Year</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>Controls</label>
+            <button id="playBtn">▶ Play</button>
+            <button id="resetBtn">🔄 Reset</button>
+        </div>
+
+        <div class="control-group">
+            <label>Time Warp</label>
+            <button class="jump-btn" data-days="30">+30 Days</button>
+            <button class="jump-btn" data-days="365">+1 Year</button>
+        </div>
+
+        <div class="control-group">
+            <label>Display</label>
+            <div class="toggle-item"><input type="checkbox" id="labelToggle" checked> Show Labels</div>
+            <div class="toggle-item"><input type="checkbox" id="satelliteToggle" checked> Show Satellites</div>
+        </div>
+
+        <span id="timeValue">Day 0</span>
+
+        <button class="home-btn" onclick="window.location.href='/'">Return to Hub</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <script src="/static/planets.js"></script>
+    <script src="/static/main.js"></script>
+
+    <script>
+        // Fix for the Jump Buttons which were in HTML but needed logic implementation
+        document.querySelectorAll('.jump-btn').forEach(btn => {
+            btn.onclick = () => {
+                // 'time' and 'updatePositions' are globally scoped in your main.js
+                if (typeof time !== 'undefined') {
+                    time += Number(btn.getAttribute('data-days'));
+                    const display = document.getElementById("timeValue");
+                    if (display) display.innerText = `Day ${Math.floor(time)}`;
+                    if (typeof updatePositions === 'function') updatePositions();
+                }
+            };
+        });
+    </script>
+</body>
+</html>

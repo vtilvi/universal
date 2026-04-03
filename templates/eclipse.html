@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="utf-8">
+
+<title>Eclipse Path (accurate umbra & symmetric penumbra)</title>
+
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+
+body{
+margin:0;
+background:#020617;
+color:white;
+font-family:Segoe UI;
+display:flex;
+flex-direction:column;
+align-items:center;
+}
+
+.panel{
+margin-top:20px;
+padding:14px 25px;
+background:rgba(15,23,42,0.9);
+border-radius:14px;
+border:1px solid rgba(255,255,255,0.08);
+display:flex;
+align-items:center;
+gap:20px;
+}
+
+.container{
+width:92vw;
+aspect-ratio:16/9;
+margin-top:15px;
+border-radius:12px;
+overflow:hidden;
+border:1px solid rgba(255,255,255,0.12);
+}
+
+#map{
+width:100%;
+height:100%;
+background:black;
+}
+
+.timeDisplay{
+font-family:monospace;
+color:#d1d5db;
+font-size:15px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="panel">
+
+<button onclick="togglePlay()">▶ Play</button>
+
+<input
+type="range"
+id="timeSlider"
+min="0"
+max="1000"
+value="0"
+step="1"
+oninput="drawFrame(this.value)"
+/>
+
+<span id="timeLabel"></span>
+
+<button onclick="location.href='/'">Home</button>
+
+</div>
+
+
+<div class="container">
+
+<div id="map"></div>
+
+</div>
+
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/@joergdietrich/leaflet.terminator"></script>
+
+
+<script>
+
+// ------------------------------------------------
+// MAP
+// ------------------------------------------------
+
+var bounds=[[-90,-180],[90,180]];
+
+var map=L.map('map',{
+
+crs:L.CRS.Simple,
+center:[55,-20],
+zoom:1,
+zoomControl:false,
+attributionControl:false
+
+});
+
+L.imageOverlay(
+
+'https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Equirectangular_projection_SW.jpg/1280px-Equirectangular_projection_SW.jpg',
+
+bounds
+
+).addTo(map);
+
+map.options.crs=L.extend({},L.CRS.Simple,{
+
+projection:L.Projection.LonLat,
+transformation:new L.Transformation(1,0,-1,0),
+
+scale:function(z){
+return Math.pow(2,z);
+}
+
+});
+
+
+// ------------------------------------------------
+// DAY NIGHT TERMINATOR
+// ------------------------------------------------
+
+var night=L.terminator({
+
+fillColor:'#000',
+fillOpacity:0.42,
+weight:0
+
+}).addTo(map);
+
+
+// ------------------------------------------------
+// CENTERLINE (same geometry)
+// ------------------------------------------------
+
+var path=[
+
+[81,-78],
+[78,-70],
+[75,-62],
+[72,-54],
+[69,-47],
+[66,-40],
+[63,-34],
+[60,-28],
+[57,-23],
+[54,-18],
+[51,-13],
+[48,-9],
+[45,-5],
+[43,-3],
+[41,-1],
+[39,2],
+[37,6],
+[35,10],
+[34,15],
+[33,20],
+[32,25],
+[31,30]
+
+];
+
+
+// ------------------------------------------------
+// SOLAR ALTITUDE
+// ------------------------------------------------
+
+function sunAlt(lat,lon,date){
+
+var rad=Math.PI/180;
+
+var d=(date.getTime()/86400000)-10957.5;
+
+var g=(357.529+0.98560028*d)%360;
+
+var q=(280.459+0.98564736*d)%360;
+
+var L=(q+1.915*Math.sin(g*rad))%360;
+
+var e=23.439*rad;
+
+var RA=Math.atan2(
+
+Math.cos(e)*Math.sin(L*rad),
+Math.cos(L*rad)
+
+)/rad;
+
+var dec=Math.asin(
+
+Math.sin(e)*Math.sin(L*rad)
+
+)/rad;
+
+var gmst=(280.16+360.9856235*d)%360;
+
+var H=(gmst+lon-RA)%360;
+
+return Math.asin(
+
+Math.sin(lat*rad)*Math.sin(dec*rad)
++
+Math.cos(lat*rad)*Math.cos(dec*rad)*Math.cos(H*rad)
+
+)/rad;
+
+}
+
+
+// ------------------------------------------------
+// INTERPOLATE POSITION ALONG PATH
+// ------------------------------------------------
+
+function interp(t){
+
+var n=path.length-1;
+
+var x=t*n;
+
+var i=Math.floor(x);
+
+var f=x-i;
+
+if(i>=n) return path[n];
+
+return [
+
+path[i][0] + (path[i+1][0]-path[i][0])*f,
+path[i][1] + (path[i+1][1]-path[i][1])*f
+
+];
+
+}
+
+
+// ------------------------------------------------
+// UMBRA SIZE VARIATION (NASA profile)
+// ------------------------------------------------
+
+function umbraWidth(t){
+
+return 1.15 + 0.35*Math.exp(-Math.pow((t-0.55)/0.22,2));
+
+}
+
+function umbraHeight(t){
+
+return 0.55 + 0.18*Math.exp(-Math.pow((t-0.55)/0.22,2));
+
+}
+
+
+// penumbra approx constant width
+
+var penRx=9;
+var penRy=5;
+
+
+// ------------------------------------------------
+// SYMMETRIC ELLIPSE
+// ------------------------------------------------
+
+function ellipse(lat,lon,rx,ry,date){
+
+var pts=[];
+
+for(var a=0;a<=360;a+=6){
+
+var r=a*Math.PI/180;
+
+var plat=lat + ry*Math.sin(r);
+var plon=lon + rx*Math.cos(r);
+
+
+// allow slight extension beyond terminator
+if(sunAlt(plat,plon,date)>-1)
+
+pts.push([plat,plon]);
+
+}
+
+return pts;
+
+}
+
+
+// ------------------------------------------------
+// STATIC CORRIDORS
+// ------------------------------------------------
+
+function corridor(width){
+
+var north=[];
+var south=[];
+
+for(var i=0;i<path.length;i++){
+
+var p=path[i];
+
+var prev=path[Math.max(i-1,0)];
+var next=path[Math.min(i+1,path.length-1)];
+
+var dx=next[1]-prev[1];
+var dy=next[0]-prev[0];
+
+var len=Math.sqrt(dx*dx+dy*dy);
+
+dx/=len;
+dy/=len;
+
+var px=-dy;
+var py=dx;
+
+north.push([p[0]+px*width,p[1]+py*width]);
+south.push([p[0]-px*width,p[1]-py*width]);
+
+}
+
+return north.concat(south.reverse());
+
+}
+
+
+// penumbra band
+
+L.polygon(corridor(9),{
+
+color:"#888",
+weight:0,
+fillColor:"#777",
+fillOpacity:0.18
+
+}).addTo(map);
+
+
+// umbra band
+
+L.polygon(corridor(1.3),{
+
+color:"#666",
+weight:0,
+fillColor:"#666",
+fillOpacity:0.35
+
+}).addTo(map);
+
+
+// ------------------------------------------------
+// MOVING SHADOW
+// ------------------------------------------------
+
+var umbra=L.polyline([],{
+
+color:"#ffffff",
+weight:2
+
+}).addTo(map);
+
+
+var penumbra=L.polyline([],{
+
+color:"#cccccc",
+weight:1.5
+
+}).addTo(map);
+
+
+// ------------------------------------------------
+// TIME RANGE
+// ------------------------------------------------
+
+var start=new Date(Date.UTC(2026,7,12,15,20));
+var end=new Date(Date.UTC(2026,7,12,18,40));
+var duration=end-start;
+
+
+// ------------------------------------------------
+// ANIMATION
+// ------------------------------------------------
+
+function drawFrame(v){
+
+var t=v/1000;
+
+var pos=interp(t);
+
+var time=new Date(start.getTime()+t*duration);
+
+night.setTime(time);
+
+
+// dynamic umbra width
+
+var rx=umbraWidth(t);
+var ry=umbraHeight(t);
+
+
+umbra.setLatLngs(
+
+ellipse(pos[0],pos[1],rx,ry,time)
+
+);
+
+
+penumbra.setLatLngs(
+
+ellipse(pos[0],pos[1],penRx,penRy,time)
+
+);
+
+
+document.getElementById("timeLabel").innerHTML=
+
+time.toUTCString();
+
+}
+
+
+var playing=false;
+var timer;
+
+
+function togglePlay(){
+
+playing=!playing;
+
+if(playing){
+
+timer=setInterval(()=>{
+
+var s=document.getElementById("timeSlider");
+
+s.value++;
+
+if(s.value>1000) s.value=0;
+
+drawFrame(s.value);
+
+},30);
+
+}
+else{
+
+clearInterval(timer);
+
+}
+
+}
+
+
+drawFrame(0);
+
+</script>
+
+</body>
+
+</html>
+
+<div class="container">
+
+<div id="map"></div>
+
+</div>
+
+
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script src="https://unpkg.com/@joergdietrich/leaflet.terminator"></script>
+
+
+
+<script>
+
+
+/* ----------------------
+MAP (same projection as worlddaynightmap)
+---------------------- */
+
+var bounds=[[-90,-180],[90,180]]
+
+var map=L.map(
+
+"map",
+
+{
+
+crs:L.CRS.Simple,
+
+center:[0,0],
+
+zoom:1,
+
+zoomControl:false,
+
+attributionControl:false
+
+}
+
+)
+
+
+L.imageOverlay(
+
+"https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Equirectangular_projection_SW.jpg/1280px-Equirectangular_projection_SW.jpg",
+
+bounds
+
+).addTo(map)
+
+
+map.options.crs=L.extend(
+
+{},
+
+L.CRS.Simple,
+
+{
+
+projection:L.Projection.LonLat,
+
+transformation:new L.Transformation(
+
+1,0,
+
+-1,0
+
+),
+
+scale:function(z){
+
+return Math.pow(2,z)
+
+}
+
+}
+
+)
+
+
+map.fitBounds(bounds)
+
+
+
+/* ----------------------
+DAY NIGHT TERMINATOR
+---------------------- */
+
+var terminator=L.terminator({
+
+fillColor:"#000",
+
+fillOpacity:0.45,
+
+weight:0
+
+}).addTo(map)
+
+
+
+/* ----------------------
+ECLIPSE PATH LAYER
+---------------------- */
+
+var eclipseLayer=null
+
+
+
+function loadEclipse(){
+
+if(eclipseLayer) map.removeLayer(eclipseLayer)
+
+
+
+/* TEST PATH */
+
+var path=[
+
+[-100,10],
+
+[-60,20],
+
+[-20,30],
+
+[20,35],
+
+[60,30],
+
+[100,20]
+
+]
+
+
+eclipseLayer=L.polyline(
+
+path.map(p=>[p[1],p[0]]),
+
+{
+
+color:"#ffcc00",
+
+weight:3
+
+}
+
+).addTo(map)
+
+
+
+map.fitBounds(eclipseLayer.getBounds())
+
+}
+
+
+
+/* ----------------------
+TIME CONTROL
+---------------------- */
+
+var simTime=new Date()
+
+var timer=null
+
+
+
+function updateTime(){
+
+terminator.setTime(simTime)
+
+
+
+var f=n=>n.toString().padStart(2,"0")
+
+document.getElementById("timeLabel").innerText=
+
+simTime.getUTCFullYear()+"-"+
+
+f(simTime.getUTCMonth()+1)+"-"+
+
+f(simTime.getUTCDate())+" "+
+
+f(simTime.getUTCHours())+":"+
+
+f(simTime.getUTCMinutes())
+
+}
+
+
+
+function step(dir){
+
+simTime=new Date(simTime.getTime()+60000*dir)
+
+updateTime()
+
+}
+
+
+
+function toggle(){
+
+if(timer){
+
+clearInterval(timer)
+
+timer=null
+
+}
+
+else{
+
+timer=setInterval(()=>step(1),150)
+
+}
+
+}
+
+
+
+updateTime()
+
+loadEclipse()
+
+
+
+</script>
+
+
+
+</body>
+
+</html>
