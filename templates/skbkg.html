@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Celestial Transit - Daily Navigation (RTL)</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #010103;
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h2 { margin-top: 20px; color: #ffffff; letter-spacing: 5px; font-weight: 300; text-transform: uppercase; }
+
+        #controls {
+            margin: 15px 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px 25px;
+            border-radius: 50px;
+            border: 1px solid #444;
+            z-index: 20;
+        }
+
+        .control-group { display: flex; align-items: center; gap: 10px; }
+        
+        button {
+            background: #ffda44;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #000;
+            transition: 0.2s;
+            font-size: 12px;
+        }
+
+        button:hover { background: #fff; }
+        
+        input[type=datetime-local], select {
+            background: #222;
+            border: 1px solid #555;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .container {
+            position: relative;
+            margin: 10px auto;
+            border: 1px solid #444;
+            background: #000;
+        }
+
+        #dashboard {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid #ffda44;
+            padding: 15px;
+            border-radius: 8px;
+            width: 320px;
+            pointer-events: none;
+            box-shadow: 0 0 15px rgba(255, 218, 68, 0.2);
+            z-index: 10;
+        }
+
+        .dash-item { margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px; }
+        .dash-label { font-size: 9px; color: #aaa; text-transform: uppercase; display: block; }
+        .dash-value { font-size: 13px; font-weight: bold; color: #fff; }
+        .highlight-value { color: #ffda44; }
+
+        .label-container {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            width: 1400px;
+            background: #05050f;
+            border-top: 2px solid #888;
+        }
+
+        .rashi-label {
+            padding: 12px 0;
+            text-align: center;
+            font-size: 11px;
+            border-right: 1px solid #333;
+            color: #ccc;
+        }
+
+        .rashi-name { display: block; font-weight: bold; color: #ffda44; }
+    </style>
+</head>
+<body>
+
+    <h2>CELESTIAL TRANSIT MAP</h2>
+
+    <div id="controls">
+        <button id="toggleBtn">PLAY</button>
+        <div class="control-group">
+            <input type="datetime-local" id="datePicker">
+        </div>
+        <div class="control-group">
+            <span style="font-size: 11px; color: #aaa;">STEP:</span>
+            <select id="speedSelect">
+                <option value="600000" selected>10 Minutes / frame</option>
+                <option value="3600000">1 Hour / frame</option>
+                <option value="86400000">1 Day / frame</option>
+                <option value="604800000">1 Week / frame</option>
+                <option value="2592000000">1 Month / frame</option>
+            </select>
+        </div>
+        <button id="resetBtn" style="background:#444; color:white;">LIVE</button>
+        <button id="prevDayBtn" style="background:#666; color:white;">PREV DAY</button>
+        <button id="nextDayBtn" style="background:#666; color:white;">NEXT DAY</button>
+    </div>
+
+    <div class="container">
+        <div id="dashboard">
+            <div class="dash-item">
+                <span class="dash-label">Universal Time</span>
+                <span id="val-time" class="dash-value">-</span>
+            </div>
+            <div class="dash-item">
+                <span class="dash-label">Current Tithi</span>
+                <span id="val-tithi" class="dash-value highlight-value">-</span>
+            </div>
+            <div class="dash-item">
+                <span class="dash-label">Chandra (Moon) Sidereal</span>
+                <span id="val-moon" class="dash-value">-</span>
+            </div>
+            <div class="dash-item">
+                <span class="dash-label">Surya (Sun) Sidereal</span>
+                <span id="val-sun" class="dash-value">-</span>
+            </div>
+        </div>
+        <canvas id="skyMap" width="1400" height="550"></canvas>
+        <div class="label-container" id="labels"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('skyMap');
+        const ctx = canvas.getContext('2d');
+        const labelsDiv = document.getElementById('labels');
+        const datePicker = document.getElementById('datePicker');
+        const speedSelect = document.getElementById('speedSelect');
+
+        const bgImg = new Image();
+        bgImg.src = '/static/test.jpg'; 
+        let imgLoaded = false;
+        bgImg.onload = () => { imgLoaded = true; };
+
+        const width = 1400, height = 550;
+        const nakshatraW = width / 27;
+        const rashiW = width / 12;
+        const NAK_SIZE = 360 / 27;
+        const ONE_DAY = 86400000;
+
+        const rashisOriginal = ["Mesha", "Vrishabha", "Mithuna", "Karka", "Simha", "Kanya", "Tula", "Vrischika", "Dhanu", "Makara", "Kumbha", "Meena"];
+        const nakshatrasOriginal = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"];
+        const tithiNames = ["Pratipada", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashti", "Saptami", "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi", "Purnima", "Pratipada", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashti", "Saptami", "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi", "Amavasya"];
+
+        const rashisDisplay = [...rashisOriginal].reverse();
+        const nakshatrasDisplay = [...nakshatrasOriginal].reverse();
+
+        let isRunning = false;
+        let simTime = Date.now(); 
+        let lastTimestamp = 0;
+        const frameInterval = 50; 
+
+        rashisDisplay.forEach((name, i) => {
+            const div = document.createElement('div');
+            div.className = 'rashi-label';
+            const degree = (11 - i) * 30;
+            div.innerHTML = `<span class="rashi-name">${name}</span>${degree}°`;
+            labelsDiv.appendChild(div);
+        });
+
+        function degToX(deg) {
+            return width - ((deg / 360) * width);
+        }
+
+        const updatePicker = (ts) => {
+            const d = new Date(ts);
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            datePicker.value = d.toISOString().slice(0, 16);
+        };
+        updatePicker(simTime);
+
+        function getCelestialData(ts) {
+            const jd = (ts / 86400000) + 2440587.5;
+            const d = jd - 2451545.0;
+            const ayanamsa = (22.460148 + 1.396042 * (jd - 2451545) / 36525) % 360;
+
+            let sunL = 280.466 + 0.985647 * d;
+            let sunM = 357.529 + 0.985600 * d;
+            let sunTrop = (sunL + 1.915 * Math.sin(sunM * Math.PI / 180)) % 360;
+            let sunSid = (sunTrop - ayanamsa + 360) % 360;
+
+            let moonL = 218.316 + 13.176396 * d;
+            let moonM = 134.963 + 13.064993 * d;
+            let moonTrop = (moonL + 6.289 * Math.sin(moonM * Math.PI / 180)) % 360;
+            let moonSid = (moonTrop - ayanamsa + 360) % 360;
+
+            let moonLat = 5.128 * Math.sin((93.272 + 13.229350 * d) * (Math.PI / 180)); 
+
+            let diff = (moonTrop - sunTrop + 360) % 360;
+            let tithiIndex = Math.floor(diff / 12);
+            const lastNew = new Date(Date.UTC(2026, 2, 19)).getTime(); 
+            const phase = ((ts - lastNew) / 86400000) % 29.53 / 29.53;
+
+            return { 
+                moonSid, sunSid, moonLat, 
+                tithiName: tithiNames[tithiIndex % 30], 
+                paksha: tithiIndex < 15 ? "Shukla" : "Krishna", 
+                phase: phase < 0 ? phase + 1 : phase, 
+                tStr: new Date(ts).toUTCString() 
+            };
+        }
+
+        function drawMoon(x, y, phase) {
+            const r = 13;
+            ctx.save();
+            ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "#fff"; ctx.shadowBlur = 15; ctx.shadowColor = "white";
+            let s = Math.cos(phase * 2 * Math.PI);
+            ctx.beginPath();
+            if (phase <= 0.5) {
+                ctx.arc(x, y, r, Math.PI/2, 3*Math.PI/2, true);
+                ctx.ellipse(x, y, Math.abs(r * s), r, 0, 3*Math.PI/2, Math.PI/2, s < 0);
+            } else {
+                ctx.arc(x, y, r, Math.PI/2, 3*Math.PI/2, false);
+                ctx.ellipse(x, y, Math.abs(r * s), r, 0, 3*Math.PI/2, Math.PI/2, s > 0);
+            }
+            ctx.fill(); ctx.restore();
+        }
+
+        function drawSun(x, y) {
+            ctx.save();
+            ctx.shadowBlur = 25; ctx.shadowColor = "#ffcc00";
+            ctx.fillStyle = "#ffda44";
+            ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+        }
+
+        function animate(timestamp) {
+            if (isRunning && timestamp - lastTimestamp > frameInterval) {
+                simTime += parseInt(speedSelect.value);
+                updatePicker(simTime);
+                lastTimestamp = timestamp;
+            }
+
+            ctx.clearRect(0, 0, width, height);
+
+            if (imgLoaded) {
+                ctx.drawImage(bgImg, 0, 0, width, height);
+            }
+
+            const data = getCelestialData(simTime);
+            const moonNIdx = Math.floor(data.moonSid / NAK_SIZE);
+            const moonNIdxDisplay = 26 - moonNIdx; 
+
+            document.getElementById('val-time').innerText = data.tStr;
+            document.getElementById('val-tithi').innerText = `${data.paksha} - ${data.tithiName}`;
+            document.getElementById('val-moon').innerText = `${nakshatrasOriginal[moonNIdx]} (${data.moonSid.toFixed(2)}°)`;
+            document.getElementById('val-sun').innerText = `${rashisOriginal[Math.floor(data.sunSid/30)]} (${data.sunSid.toFixed(2)}°)`;
+
+            ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+            ctx.fillRect(0,0, width, height);
+
+            ctx.fillStyle = "rgba(100, 200, 255, 0.1)";
+            ctx.fillRect(moonNIdxDisplay * nakshatraW, 0, nakshatraW, height);
+
+            nakshatrasDisplay.forEach((name, j) => {
+                const nx = j * nakshatraW;
+                const active = (j === moonNIdxDisplay);
+                ctx.setLineDash([4, 8]); 
+                ctx.strokeStyle = active ? "rgba(255, 218, 68, 0.5)" : "rgba(255, 255, 255, 0.1)";
+                ctx.beginPath(); ctx.moveTo(nx, 0); ctx.lineTo(nx, height); ctx.stroke();
+                
+                ctx.save();
+                ctx.translate(nx + (nakshatraW / 2), 45); ctx.rotate(-Math.PI / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = active ? "#ffffff" : "rgba(200, 200, 200, 0.7)";
+                ctx.font = active ? "bold 12px sans-serif" : "10px sans-serif";
+                ctx.fillText(name.toUpperCase(), 0, 0); ctx.restore();
+            });
+
+            ctx.setLineDash([]);
+            for (let i = 0; i <= 12; i++) {
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.4)"; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(i * rashiW, 0); ctx.lineTo(i * rashiW, height); ctx.stroke();
+            }
+
+            ctx.strokeStyle = "rgba(100, 200, 255, 0.3)"; ctx.lineWidth = 2; ctx.beginPath();
+            for (let d = 0; d <= 360; d++) {
+                const x = degToX(d);
+                const y = 275 + Math.sin((d/360)*Math.PI*2)*135;
+                d === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            const sx = degToX(data.sunSid);
+            const sy = 275 + Math.sin((data.sunSid/360)*Math.PI*2)*135;
+            drawSun(sx, sy);
+
+            const mx = degToX(data.moonSid);
+            const my = 275 + Math.sin((data.moonSid/360)*Math.PI*2)*135 + (data.moonLat * 15);
+            drawMoon(mx, my, data.phase);
+
+            requestAnimationFrame(animate);
+        }
+
+        // --- BUTTON HANDLERS ---
+
+        document.getElementById('toggleBtn').onclick = (e) => {
+            isRunning = !isRunning;
+            e.target.innerText = isRunning ? "PAUSE" : "PLAY";
+        };
+
+        datePicker.onchange = (e) => {
+            isRunning = false;
+            document.getElementById('toggleBtn').innerText = "PLAY";
+            simTime = new Date(e.target.value).getTime();
+        };
+
+        document.getElementById('resetBtn').onclick = () => {
+            simTime = Date.now(); isRunning = false;
+            document.getElementById('toggleBtn').innerText = "PLAY";
+            updatePicker(simTime);
+        };
+
+        // NEW NAVIGATION LOGIC
+        document.getElementById('prevDayBtn').onclick = () => {
+            simTime -= ONE_DAY;
+            updatePicker(simTime);
+        };
+
+        document.getElementById('nextDayBtn').onclick = () => {
+            simTime += ONE_DAY;
+            updatePicker(simTime);
+        };
+
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>

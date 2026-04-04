@@ -3,253 +3,124 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Celestial Engine Hub</title>
-
 <style>
-
-body {
-
-font-family:'Segoe UI', Roboto, sans-serif;
-
-background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%);
-
-color:white;
-
-display:flex;
-
-justify-content:center;
-
-align-items:center;
-
-height:100vh;
-
-margin:0;
-
-overflow:hidden;
-
-}
-
-
-.hub-container {
-
-text-align:center;
-
-background: rgba(255,255,255,0.05);
-
-padding:50px;
-
-border-radius:30px;
-
-backdrop-filter: blur(15px);
-
-border:1px solid rgba(255,255,255,0.1);
-
-max-width:900px;
-
-box-shadow:0 25px 50px rgba(0,0,0,0.5);
-
-}
-
-
-h1 {
-
-font-weight:300;
-
-letter-spacing:5px;
-
-margin-bottom:40px;
-
-text-transform:uppercase;
-
-color:#00d4ff;
-
-}
-
-
-.tool-grid {
-
-display:grid;
-
-grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
-
-gap:25px;
-
-justify-content:center;
-
-}
-
-
-.tool-card {
-
-padding:30px 20px;
-
-background: rgba(0,0,0,0.4);
-
-border:1px solid rgba(0,212,255,0.2);
-
-border-radius:20px;
-
-text-decoration:none;
-
-color:white;
-
-transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
-
-display:flex;
-
-flex-direction:column;
-
-align-items:center;
-
-}
-
-
-.tool-card:hover {
-
-transform:translateY(-8px);
-
-background: rgba(0,212,255,0.1);
-
-border-color:#00d4ff;
-
-box-shadow:0 10px 30px rgba(0,212,255,0.3);
-
-}
-
-
-.tool-card h2 {
-
-color:#00d4ff;
-
-margin:15px 0 10px 0;
-
-font-size:1.4rem;
-
-font-weight:400;
-
-}
-
-
-.tool-card p {
-
-margin:0;
-
-font-size:0.9rem;
-
-opacity:0.7;
-
-line-height:1.5;
-
-}
-
-
-.icon {
-
-font-size:3rem;
-
-filter: drop-shadow(0 0 10px rgba(0,212,255,0.5));
-
-}
-
+    body {
+        font-family:'Segoe UI', Roboto, sans-serif;
+        background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%);
+        color:white;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        height:100vh;
+        margin:0;
+        overflow:hidden;
+    }
+
+    .hub-container {
+        text-align:center;
+        background: rgba(255,255,255,0.05);
+        padding:50px;
+        border-radius:30px;
+        backdrop-filter: blur(15px);
+        border:1px solid rgba(255,255,255,0.1);
+        max-width:1100px; /* Slightly widened for 5 cards */
+        box-shadow:0 25px 50px rgba(0,0,0,0.5);
+    }
+
+    h1 {
+        font-weight:300;
+        letter-spacing:5px;
+        margin-bottom:40px;
+        text-transform:uppercase;
+        color:#00d4ff;
+    }
+
+    .tool-grid {
+        display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+        gap:20px;
+        justify-content:center;
+    }
+
+    .tool-card {
+        text-decoration:none;
+        background: rgba(255,255,255,0.03);
+        border:1px solid rgba(255,255,255,0.1);
+        padding:25px;
+        border-radius:20px;
+        color:white;
+        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+    }
+
+    .tool-card:hover {
+        transform:translateY(-8px);
+        background: rgba(0,212,255,0.1);
+        border-color:#00d4ff;
+        box-shadow:0 10px 30px rgba(0,212,255,0.3);
+    }
+
+    .tool-card h2 {
+        color:#00d4ff;
+        margin:15px 0 10px 0;
+        font-size:1.3rem;
+        font-weight:400;
+    }
+
+    .tool-card p {
+        margin:0;
+        font-size:0.85rem;
+        opacity:0.7;
+        line-height:1.5;
+    }
+
+    .icon {
+        font-size:2.5rem;
+        filter: drop-shadow(0 0 10px rgba(0,212,255,0.5));
+    }
 </style>
-
 </head>
-
 <body>
 
 <div class="hub-container">
+    <h1>Celestial Engine Hub</h1>
+    <div class="tool-grid">
 
-<h1>Celestial Engine Hub</h1>
+        <a href="/worldcalendar" class="tool-card">
+            <span class="icon">📅</span>
+            <h2>World Calendar</h2>
+            <p>Explore the Indian Calendar, moon phases, and sidereal zodiac longitudes.</p>
+        </a>
 
-<div class="tool-grid">
+        <a href="/monitor" class="tool-card">
+            <span class="icon">🌍</span>
+            <h2>Global Monitor</h2>
+            <p>Live day/night tracking and solar/lunar activity across the globe.</p>
+        </a>
 
+        <a href="/solarsystem" class="tool-card">
+            <span class="icon">🪐</span>
+            <h2>Solar System</h2>
+            <p>A majestic 3D view of planetary orbits and celestial mechanics.</p>
+        </a>
 
-<a href="/worldcalendar" class="tool-card">
+        <a href="/eclipse" class="tool-card">
+            <span class="icon">🌑</span>
+            <h2>Eclipse Path</h2>
+            <p>Visualize accurate umbra and penumbra paths for solar eclipses.</p>
+        </a>
 
-<span class="icon">✨</span>
+        <a href="/akshan" class="tool-card">
+            <span class="icon">✨🕒</span>
+            <h2>Akshan</h2>
+            <p>Observe the prograde motion of stars and transit through Nakshatras.</p>
+        </a>
 
-<h2>World Calendar</h2>
-
-<p>
-
-Explore the Indian Calendar,
-
-moon phases,
-
-and sidereal zodiac longitudes.
-
-</p>
-
-</a>
-
-
-
-<a href="/monitor" class="tool-card">
-
-<span class="icon">🌍</span>
-
-<h2>World Day & Night Map</h2>
-
-<p>
-
-Real-time day/night tracking,
-
-solar activity,
-
-and terminator mapping.
-
-</p>
-
-</a>
-
-
-
-<a href="/solarsystem" class="tool-card">
-
-<span class="icon">🪐</span>
-
-<h2>Solar System Simulator</h2>
-
-<p>
-
-3D interactive orrery visualizing
-
-planetary orbits
-
-and real-time positions.
-
-</p>
-
-</a>
-
-
-
-<!-- NEW CARD -->
-
-<a href="/eclipse" class="tool-card">
-
-<span class="icon">🌘</span>
-
-<h2> Eclipse Viewer</h2>
-
-<p>
-
-Interactive map showing path of solar eclipses,
-
-shadow geometry,
-
-and timing information.
-
-</p>
-
-</a>
-
-
-</div>
-
+    </div>
 </div>
 
 </body>
-
 </html>
